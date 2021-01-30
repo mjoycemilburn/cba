@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="CBA affiliated society events index" />
+    <meta name="keywords" content="cba, archaeology, lectures, meeting, displays" />
+
+    <title>CBA Events Index</title>
+
+    <link rel="shortcut icon" href="https://ngatesystems.com/cba/cbaindex.jpg">
+
+    <!-- Bootstrap includes from https://www.w3schools.com/bootstrap4/tryit.asp?filename=trybs_carousel2 -->
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+
+    <style></style>
+    </style>
+
+</head>
+
+<body>
+
+    <span id="eventstable"></span>
+
+    <!-- utilities - empty form for the XMLHTTP PHP calls, "spinner for text loads and empty anchor for backup downloads -->
+
+    <form id='dummyform'>
+    </form>
+
+    <script>
+        // set the eventsTableStartDateMonthOffset to 0 so that displayEventsTable will display events from "today"
+        var eventsTableStartDateMonthOffset = 0;
+        var eventsTableType = "CBA National";
+        var targetSocietyId;
+        var targetAreaId;
+
+        window.onload = function () {
+
+            // see what parameters (if any) are present
+
+            targetSocietyId = getUrlParameter('target_society_id');
+            if (targetSocietyId != "") {
+                eventsTableType = "Local Society";
+                eventsTableStartDateMonthOffset = 100;
+            }
+
+            targetAreaId = getUrlParameter('target_area_id');
+            if (targetAreaId != "") {
+                eventsTableType = "CBA Area";
+            }
+            displayEventsTable();
+        }
+
+        function displayEventsTable() {
+
+            var form = document.forms.namedItem("dummyform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "build_events_table");
+            oData.append("events_table_type", eventsTableType);
+            oData.append("month_offset", eventsTableStartDateMonthOffset);
+            oData.append("target_society_id", targetSocietyId);
+            oData.append("target_area_id", targetAreaId);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/cba_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
+
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
+                        document.getElementById('eventstable').innerHTML = response;
+
+                    }
+                }
+            };
+            oReq.send(oData);
+        }
+
+        var eventModalOptions = {
+            backdrop: true,
+            keyboard: false,
+            show: true,
+            remote: false
+        }
+
+        function displayEventModal(modalNumber) {
+
+            var eventModal = document.getElementById("eventmodal" + modalNumber);
+            $("#eventmodal" + modalNumber).modal(eventModalOptions); // bootstrap plugin - see https://www.w3schools.com/bootstrap/bootstrap_ref_js_modal.asp 
+        }
+
+        function moveEventDisplayMonth(n) {
+            // advance/retard eventsTableStartDateMonthOffset by n months
+
+            eventsTableStartDateMonthOffset = Math.max(0, eventsTableStartDateMonthOffset + n);
+            displayEventsTable();
+        }
+
+        function changeSociety() {
+            // set targetSocietyId to the id of the selected society
+
+            var societypicklist = document.getElementById('societypicklist');
+            targetSocietyId = societypicklist.options[societypicklist.selectedIndex].value;
+            targetAreaId = 0;
+            displayEventsTable();
+        }
+
+        function changeArea() {
+            // set targetAreaId to the id of the selected society
+
+            var areapicklist = document.getElementById('areapicklist');
+            targetAreaId = areapicklist.options[areapicklist.selectedIndex].value;
+            targetSocietyId = 0;
+            displayEventsTable();
+        }
+
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            var results = regex.exec(window.location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+    </script>
+</body>
+
+</html>
