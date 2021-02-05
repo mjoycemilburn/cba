@@ -66,6 +66,7 @@
             oData.append("month_offset", eventsTableStartDateMonthOffset);
             oData.append("target_society_id", targetSocietyId);
             oData.append("target_area_id", targetAreaId);
+            oData.append("target_event_id", "");
             var oReq = new XMLHttpRequest();
             oReq.open("POST", "php/cba_helpers.php", true);
             oReq.onload = function (oEvent) {
@@ -97,6 +98,7 @@
 
         function displayEventModal(modalNumber) {
 
+            event.stopPropagation(); 
             var eventModal = document.getElementById("eventmodal" + modalNumber);
             $("#eventmodal" + modalNumber).modal(eventModalOptions); // bootstrap plugin - see https://www.w3schools.com/bootstrap/bootstrap_ref_js_modal.asp 
         }

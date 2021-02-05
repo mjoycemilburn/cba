@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="Home page for CBA Events Maintenance : Archaeology Society Events records">
+    <title>CBA Events</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- code for datepicker -->
+    <script src="//code.jquery.com/jquery-1.10.2.js"></script>
+    <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+
+    <style>
+        div.ui-datepicker {
+            font-size: 12px;
+            background: white;
+            border: 1px solid #555;
+            color: blue;
+        }
+
+        /* current input value background color */
+        .ui-datepicker-current-day {
+            background: #83C948
+        }
+
+        /* today's background color */
+        .ui-datepicker-today {
+            background: #83C948
+        }
+
+        button {
+            margin-left: 1em;
+            background-color: aqua;
+            width: 5em;
+            cursor: pointer;
+        }
+
+        input,
+        select {
+            background-color: wheat;
+        }
+
+        input[type=file] {
+            width: 15em;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input,
+        p,
+        button,
+        select {
+            padding: .25em;
+            margin-bottom: .25em;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <form id='dummyform'>
+        <!-- dummy form used to communicate with php helper functions -->
+    </form>
+
+    <!--  ++++++++++++  Welcome Header and Event Overview panel ++++++++++++++++++++++++++ -->
+
+    <div id='eventoverview' style="visibility: visible;"></div>
+
+    <!--  ++++++++++++  Hidden event edit panel ++++++++++++++++++++++++++ -->
+
+    <div id="eventeditpanel"
+        style="position: fixed; top: 5vh; left: 15vw; width: 70vw; height: 90vh; background: whitesmoke; display: inline-block; text-align: center; border: 1px solid black; visibility: hidden;">
+        <form id = 'eventform' style='text-align: center;'>
+            <h2>Event Update Panel :</h2><br>
+
+            <label for='eventdate'>&nbsp;&nbsp;Event Date : </label>
+            <input type='text' id='eventdate' maxlength='8' size='8' autocomplete='off'
+                title='Click to enter the date of this event' onmousedown='applyDatepicker("eventdate");' <label
+                for='eventtime'>&nbsp;&nbsp;Event Time : </label>
+            <input type='time' id='eventtime' autocomplete='off' ; title='Click to enter the time of this event'>
+            <label for='eventtype'>&nbsp;&nbsp;Event Type : </label>
+            <span id="eventtypesselectelement"></span><br><br>
+
+            <label for='eventtitle'>Event Title : </label>
+            <input type='text' id='eventtitle' maxlength='200' size='60' autocomplete='off' placeholder=''
+                title='Enter the title of this event'><br><br>
+
+            <label for='presenter'>Presenter : </label>
+            <input type='text' id='presenter' maxlength='100' size='60' autocomplete='off' placeholder=''
+                title='Eenter the name of the lecturer/leader for this event'><br><br>
+
+            <label for='synopsisdiv'>Synopsis : </label>
+            <div id='synopsisdiv'
+                style="width:60%; height:20vh; text-align: left; margin-left: auto; margin-right: auto; margin-top: 2vh; border:thin solid black; overflow-x: hidden; overflow-x: auto;">
+                <p id="synopsis" contenteditable=true
+                    style="margin: 2vh auto 0vh auto; background:lightblue;padding-left:1vw; padding-right:1vw;">
+                </p>
+            </div><br><br>
+
+            <label for='backgroundfile'>Background File : </label>
+            <input type="file" id="backgroundfile" maxlength="32" size="12"
+                title="Optionally select a jpg file to be used as the event background and the sunopsis header">
+            <br><br>
+
+            <label for='eventpublished'>Event published? : </label>
+            <span id='eventpublished'>
+                <input type="radio" id="eventpublishedy" name="eventpublished"
+                    title="Event details cleared to appear on the website" value="Y">Published&nbsp;&nbsp;&nbsp;
+                <input type="radio" id="eventpublishedn" name="eventpublished"
+                    title="Event details not cleared to appear on the website" value="N" checked>Not Published
+            </span><br><br>
+            <button id='previeweventbutton' type='button' onclick='previewEvent();'
+                title='Display a preview of the Event entry'>Preview</button>
+            <button id='updateeventbutton' type='button' title='Save these changes'>Save</button>
+            <button id='canceleventupdatebutton' type='button' onclick='toggleEventPanels();'
+                title='Cancel this edit'>Cancel</button><br>
+
+
+        </form>
+    </div>
+
+    <div id="temp"></div>
+
+    <!--  ++++++++++++  Support scripts   ++++++++++++++++++++++++++ -->
+
+    <script>
+
+        var societyId = 1;
+        var eventDate;
+        var eventTime;
+        var eventDateTime;
+
+        var eventTypesSelectElement = "\
+            <select id='eventtype' size='1' style='max-width: 12rem;'>\
+                    <option value='Lecture'>Lecture</option>\
+                    <option value='Online-Lecture'>Online-Lecture</option>\
+                    <option value='Workshop'>Workshop</option>\
+                    <option value=' Visit'>Visit</option>\
+                </select>";
+
+        window.onload = function () {
+            displayEventOverview('', '');
+        }
+
+        function displayEventOverview(message, messageType) {
+
+            // The message parameter communicates the result of the last Event update call
+
+            var form = document.forms.namedItem("dummyform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "build_event_overview");
+            oData.append("society_id", societyId);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
+
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
+                        document.getElementById('eventoverview').innerHTML = response;
+
+                        var messagearea = document.getElementById('messagearea');
+                        messagearea.innerHTML = message;
+                        messagearea.style.color = "blue";
+                        if (messageType === "error") messagearea.style.color = "red";
+                    }
+                }
+            };
+            oReq.send(oData);
+        }
+
+        function insertEvent() {
+
+            // create datetime key in the db's yyyy-mm-dd hh:mm:ss format
+            eventDate = document.getElementById('eventdate0').value;
+            eventTime = document.getElementById('eventtime0').value;
+            var eventDateTime = eventDate + " " + eventTime + ":00";
+
+            var form = document.forms.namedItem("event0");
+            var oData = new FormData(form);
+            oData.append("helper_type", "insert_event");
+            oData.append("society_id", societyId);
+            oData.append("event_datetime", eventDateTime);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
+
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
+                        if (response.indexOf("Oops") != -1) {
+                            displayEventOverview(response, 'error');
+                        } else {
+                            toggleEventPanels()
+                            document.getElementById('eventdate').value = eventDate;
+                            document.getElementById('eventtime').value = eventTime;
+                            document.getElementById('eventtypesselectelement').innerHTML = eventTypesSelectElement;
+                            document.getElementById('eventtypesselectelement').value = "Lecture";
+
+                            document.getElementById('updateeventbutton').setAttribute("onclick", 'updateEvent(' + response + ')');
+                           // document.getElementById('previeweventbutton').setAttribute("onclick", 'previewEvent(' + response + ')');
+                            document.getElementById('previeweventbutton').onclick = function() { previewEvent(response);};
+                        }
+                    }
+                }
+            };
+            oReq.send(oData);
+        }
+
+        function displayEventEditPanel(eventId) {
+
+            // get the current data for event eventId and display it in the edit panel
+
+            var form = document.forms.namedItem("dummyform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "get_event_data");
+            oData.append("event_id", eventId);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
+
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
+
+                        JSONObject = JSON.parse(response);
+
+                        eventDatetime = JSONObject.eventDatetime;
+                        eventDate = eventDatetime.substr(0, 10);
+                        eventTime = eventDatetime.substr(11, 5);
+
+                        document.getElementById('eventdate').placeholder = eventDate;
+                        document.getElementById('eventdate').value = eventDate;
+                        document.getElementById('eventtime').value = eventTime;
+
+                        document.getElementById('eventtypesselectelement').innerHTML = eventTypesSelectElement;
+                        document.getElementById('eventtypesselectelement').value = JSONObject.eventType;
+
+                        document.getElementById('eventtitle').value = JSONObject.eventTitle;
+                        document.getElementById('presenter').value = JSONObject.presenter;
+                        document.getElementById('synopsis').innerHTML = JSONObject.synopsis;
+
+                        //document.getElementById('synopsisbackgroundavailable').value = JSONObject.synopsisBackgroundAvailable;
+
+                        if (JSONObject.eventPublished === "Y") {
+                            document.getElementById('eventpublishedy').checked = true;
+                            document.getElementById('eventpublishedn').checked = false;
+                        } else {
+                            document.getElementById('eventpublishedn').checked = true;
+                            document.getElementById('eventpublishedy').checked = false;
+                        }
+
+                        document.getElementById('updateeventbutton').setAttribute('onclick', 'updateEvent(' + eventId + ')');
+                        document.getElementById('previeweventbutton').setAttribute('onclick', 'previewEvent(' + eventId + ')');
+                        toggleEventPanels();
+                    }
+                }
+            };
+            oReq.send(oData);
+        }
+
+        function updateEvent(eventId) {
+
+            // create datetime key in the db's yyyy-mm-dd hh:mm:ss format
+            eventDate = document.getElementById('eventdate').value;
+            eventTime = document.getElementById('eventtime').value;
+            eventDateTime = eventDate + " " + eventTime + ":00";
+
+            var form = document.forms.namedItem("dummyform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "update_event");
+            oData.append("event_id", eventId);
+            oData.append("event_datetime", eventDateTime);
+            oData.append("event_type", document.getElementById('eventtype').value);
+            oData.append("event_title", document.getElementById('eventtitle').value);
+            oData.append("presenter", document.getElementById('presenter').value);
+            oData.append("synopsis", document.getElementById('synopsis').innerHTML);
+            //oData.append("synopsis_background_available", document.getElementById('eventtitle0').value);
+            var eventPublished = "N";
+            if (document.getElementById('eventpublishedy').checked) eventPublished = "Y";
+            oData.append("event_published", eventPublished);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
+
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
+                        toggleEventPanels()
+                        displayEventOverview("Event updated", '');
+
+                    }
+                }
+            };
+            oReq.send(oData);
+        }
+
+        function deleteEvent(eventId) {
+
+            var form = document.forms.namedItem("dummyform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "delete_event");
+            oData.append("event_id", eventId);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
+
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
+                        if (response.indexOf("OK") != -1) {
+                            displayEventOverview("Deletion succeeded", '');
+                        } else {
+                            displayEventOverview("Deletion failed", 'error');
+                        }
+                    }
+                }
+            };
+            oReq.send(oData);
+        }
+
+        function previewEvent(eventId) {
+
+            // save the data for eventId in event_id = 0 and run the popup aginst this record
+
+            event.stopPropagation(); // make sure we don't triggger the window click we set up later
+
+            //displayPopupWindow("https://ngatesystems.com/beagairbheag/upload_babbackup.html?transitfilename=" + transitFilename);
+            displayPopupWindow("event_preview_popup.html?target_event_id=" + eventId);
+        }
+
+        function displayPopupWindow(url) {
+
+            // popup is displayed as a centered panel of .75 display width/height
+
+            var popupWidth = 1.0 * (window.innerWidth);
+            var popupHeight = 1.0 * (window.innerHeight);
+            var popupLeft = 0.5 * (window.innerWidth - popupWidth);
+            var popupTop = 0.5 * (window.innerHeight - popupHeight);
+
+            var popupSpecs = "width=" + popupWidth + ", height=" + popupHeight + ", left=" + popupLeft + ", top=" + popupTop + "t, resizable = yes, scrollbars = yes ";
+
+            var popUpWindow = window.open(url, "popUpWindow", popupSpecs);
+
+            // Create a temporary window.onclick function to close the popup and null itself when
+            // the use clicks outside
+
+            window.onclick = function () {
+                popUpWindow.close();
+                window.onclick = null;
+            };
+        }
+
+        function toggleEventPanels() {
+            var eventoverview = document.getElementById('eventoverview');
+            var eventeditpanel = document.getElementById('eventeditpanel');
+            if (eventoverview.style.visibility === "visible") {
+                eventoverview.style.visibility = "hidden";
+                eventeditpanel.style.visibility = "visible";
+            } else {
+                eventoverview.style.visibility = "visible";
+                eventeditpanel.style.visibility = "hidden";
+            }
+        }
+
+        function applyDatepicker(elementId) {
+
+            var oldDate = document.getElementById(elementId).value;
+
+            $('#' + elementId).datepicker();
+            $('#' + elementId).datepicker('option', 'dateFormat', 'yy-mm-dd'); // set 2020-03-30 type format
+            $('#' + elementId).datepicker('option', 'changeMonth', true); // display month drop-down
+            $('#' + elementId).datepicker('option', 'changeYear', true); // display year drop-down
+            $('#' + elementId).datepicker('option', 'yearRange', '1999:c'); // 1999 to current - see https://api.jqueryui.com/datepicker/#option-yearRange
+
+            //if there's a value for the element, inject this into datepicker
+            var elementValue = document.getElementById(elementId).placeholder;
+            if (elementValue != '') {
+                $('#' + elementId).datepicker("setDate", elementValue);
+            }
+
+            $('#' + elementId).datepicker()
+                .on('input change', function (e) {
+
+                    var newDate = document.getElementById(elementId).value;
+                    if (newDate == '')
+                        document.getElementById(elementId).value = oldDate;
+
+                });
+
+        }
+
+    </script>
+
+</body>
+
+</html>

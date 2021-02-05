@@ -43,3 +43,22 @@ function sql_result_for_location($sql, $location)
     return $result;
 }
 
+# Prepare a string in for submission to SQL
+
+function prepareStringforSQL($input)
+{
+
+    # " must be "escaped" to be acceptable in SQL commands
+    # ' must be changed to '' to be acceptable in SQL commands
+    # You might have thought we would do this at the outset before these characters reached "helpers"
+    # but the problem is that the code ' gets turned back into ' on its way through POST
+
+    $output = $input;
+
+    $output = str_replace('"', '\"', $output);
+    $output = str_replace("'", "''", $output);
+
+    return $output;
+}
+
+

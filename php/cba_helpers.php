@@ -95,7 +95,9 @@ if ($helper_type == "build_events_table") {
 
         array_push($societies, (object)[
         'society_id' => $row['society_id'],
-        'society_name' => $row['society_name']
+        'society_name' => $row['society_name'],
+        'society_website_url' => $row['society_website_url'],
+        'society_contact_email_address' => $row['society_contact_email_address']
         ]);
     }
 
@@ -140,6 +142,7 @@ if ($helper_type == "build_events_table") {
 
     // build an appropriate header for the events display
 
+    $header = '';
     if ($events_table_type === "CBA National") {
         $header =  "<div style='width: 95%; margin-left:3vw; margin-right: 3vw; text-align: center;'>
                         <img style='width: 100%;' src='imgs/cba_header.jpg'>
@@ -206,6 +209,8 @@ if ($helper_type == "build_events_table") {
    
     if ($events_table_type === "CBA Area") {
         $sql = "SELECT * FROM cba_events WHERE 
+                    event_published = 'Y' AND
+                    event_is_preview = 'N' AND
                     event_datetime >= '$formatted_time_start' AND
                     event_datetime < '$formatted_time_finish' AND
                     society_id IN (SELECT 
@@ -214,11 +219,13 @@ if ($helper_type == "build_events_table") {
                                     cba_societies
                                 WHERE
                                     area_id = '$target_area_id')
-                ORDER BY event_datetime ASC;";
+                ORDER BY event_datetime ASC, event_title ASC;";
     } else {
         $sql = "SELECT * FROM cba_events WHERE 
-                event_datetime >= '$formatted_time_start' AND
-                event_datetime < '$formatted_time_finish'";
+                    event_published = 'Y' AND
+                    event_is_preview = 'N' AND
+                    event_datetime >= '$formatted_time_start' AND
+                    event_datetime < '$formatted_time_finish'";
 
         if ($target_society_id != 0) {
             $sql .= "AND society_id = '$target_society_id'";
@@ -232,8 +239,13 @@ if ($helper_type == "build_events_table") {
                                 WHERE
                                     area_id = '$target_area_id')";
         }
-        $sql .= "ORDER BY 
-                event_datetime ASC;";
+        $sql .= "ORDER BY event_datetime ASC, event_title ASC;";
+    }
+
+    if ($events_table_type === "Preview") {
+        $sql = "SELECT * FROM cba_events WHERE 
+        society_id = '$target_society_id' AND
+        event_is_preview = 'Y';";
     }
 
     $result = sql_result_for_location($sql, 3);
@@ -268,21 +280,28 @@ if ($helper_type == "build_events_table") {
         $event_type = $row['event_type'];
         $event_title = $row['event_title'];
         $trimmed_event_title = $event_title;
-        if (strlen($event_title) > 70) $trimmed_event_title = substr($event_title, 0, 69) . " ...";
+        if (strlen($event_title) > 70) {
+            $trimmed_event_title = substr($event_title, 0, 69) . " ...";
+        }
         $presenter = $row['presenter'];
         $synopsis = $row['synopsis'];
 
         // great textured background library on https://unsplash.com/backgrounds/art/texture
 
-        $synopsis_background_available = $row['synopsis_background_available'];
+        $standard_background_overridden = $row['standard_background_overridden'];
         $event_published = $row['event_published'];
 
-        if ($synopsis_background_available === "Y") {
-            $event_text_color = "white;";
-            $event_background = "url(\"synopsis_backgrounds/" . $event_id . ".jpg\");";
+        if ($standard_background_overridden === "Y") {
+            if ($events_table_type === "Preview") {
+                $event_text_color = "white;";
+                $event_background = "url(\"user_background_previews/" . $society_id . ".jpg?" . time() . "\");>";
+            } else {
+                $event_text_color = "white;";
+                $event_background = "url(\"user_backgrounds/" . $event_id . ".jpg\");";
+            }
         } else {
             $event_text_color = "black";
-            $event_background = "url(\"society_backgrounds/" . $society_id . ".jpg\");";
+            $event_background = "url(\"system_backgrounds/" . $society_id . ".jpg\");";
         }
 
         // bootstrap gets confused if put margins directly on a col - need to define these inside the entry
@@ -321,12 +340,24 @@ if ($helper_type == "build_events_table") {
         $event_modal .= "<div class = 'modal fade' id = 'eventmodal" . $modal_number . "'>";
         $event_modal .= "<div class = 'modal-dialog modal-content modal-body'>";
  
-        if ($synopsis_background_available === "Y") {
-            $event_modal .= "<img style='width: 100%;' src='synopsis_backgrounds/" . $event_id . ".jpg'>";
+        if ($standard_background_overridden === "Y") {
+            if ($events_table_type === "Preview") {
+                $event_modal .= "<img style='width: 100%;' src='user_background_previews/" . $society_id . ".jpg?" . time() . "'>";
+            } else {
+                $event_modal .= "<img style='width: 100%;' src='user_backgrounds/" . $event_id . ".jpg'>";
+            }
         }
 
         $event_modal .= "<p style='text-align: center; margin-top: 1rem; font-weight: bold;'>" . $event_title . "</p>";
         $event_modal .= $synopsis;
+
+        $event_modal .= "<p style='text-align: left; margin-top: 1rem; margin-bottom: .15rem;'><span style='font-weight: bold;'>Society website: </span>";
+        $event_modal .= "<a href = '". $societies[$index]->society_website_url . "' target='_blank'>". $societies[$index]->society_website_url . "</a></p>";
+
+        $event_modal .= "<p style='text-align: left; margin-top: 0;'><span style='font-weight: bold;'>Contact address: </span>";
+        $event_modal .= "<a href = 'mailto:". $societies[$index]->society_contact_email_address . " target='_blank'>". $societies[$index]->society_contact_email_address . "</a></p>";
+
+
         $event_modal .= "</div></div>";
 
         $return .= $event_modal;

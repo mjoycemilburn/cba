@@ -1,1203 +1,562 @@
 <!DOCTYPE html>
 <html lang="en-GB">
-    <head>
-        <meta charset="utf-8"> 
-        <meta name="description" 
-              content="Home page for CBA Events Maintenance : Archaeology Society Events records">
-        <title>CBA Events</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">     
 
-        <!-- Bootstrap includes from https://www.w3schools.com/bootstrap4/tryit.asp?filename=trybs_carousel2 -->
+<head>
+    <meta charset="utf-8">
+    <meta name="description" content="Home page for CBA Events Maintenance : Archaeology Society Events records">
+    <title>CBA Events</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- code for datepicker -->
+    <script src="//code.jquery.com/jquery-1.10.2.js"></script>
+    <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
 
-        <!-- code for datepicker -->
-        <link href = "https://code.jquery.com/ui/1.10.4/themes/ui-lightness/jquery-ui.css" rel = "stylesheet">
-        <script src="//code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <style>
+        div.ui-datepicker {
+            font-size: 12px;
+            background: white;
+            border: 1px solid #555;
+            color: blue;
+        }
 
-        <style>
+        /* current input value background color */
+        .ui-datepicker-current-day {
+            background: #83C948
+        }
 
-            div.ui-datepicker {
-                font-size:12px;
-                background: gainsboro;
-                border: 1px solid #555;
-                color: blue;
-            }
+        /* today's background color */
+        .ui-datepicker-today {
+            background: #83C948
+        }
 
-            /* current input value background color */
-            .ui-datepicker-current-day
-            {
-                background: #83C948
-            }
-            /* today's background color */
-            .ui-datepicker-today 
-            {
-                background: #83C948
-            }
+        button {
+            margin-left: 1em;
+            background-color: aqua;
+            width: 5em;
+            cursor: pointer;
+        }
 
-            #ui-datepicker-div {z-index:9999 !important}
+        input,
+        select {
+            background-color: wheat;
+        }
 
-            .cell {
-                display: inline-block;
-                margin-bottom: .25rem;
-                vertical-align: top;
-            }
+        input[type=file] {
+            width: 15em;
+        }
 
-            .bold {
-                font-weight: bold;
-            }
+        label {
+            font-weight: bold;
+        }
 
-            .center {
-                text-align: center;
-                margin-left: auto;
-                margin-right: auto;
-            }
+        input,
+        p,
+        button,
+        select {
+            padding: .25em;
+            margin-bottom: .25em;
+        }
+    </style>
 
-            label {
-                display: inline-block;
-                width: 15rem;
-                text-align: right;
-                vertical-align: top;
-                font-weight: bold;
-            }​
+</head>
 
-        </style>
+<body>
 
-    </head>
-    <body>
+    <form id='dummyform'>
+        <!-- dummy form used to communicate with php helper functions -->
+    </form>
 
-        <form id = 'dummyform'> <!-- dummy form used to communicate with php helper functions -->
-        </form>
+    <!--  ++++++++++++  Welcome Header and Event Overview panel ++++++++++++++++++++++++++ -->
 
-        <!--  ++++++++++++  Header ++++++++++++++++++++++++++ -->
+    <div id='eventoverview' style="visibility: visible;"></div>
 
-        <div style = 'margin: 2vh auto 2vh auto; width: 75%; text-align: center;'>
-            <div style ='padding: 2vh; background: white;'>
-                <h1>CBA Events System Data Manager</h1>
-            </div>
-        </div>
+    <!--  ++++++++++++  Hidden event edit panel ++++++++++++++++++++++++++ -->
 
-        <div id='inserteditdiv'></div>
+    <div id="eventeditpanel"
+        style="position: fixed; top: 5vh; left: 15vw; width: 70vw; height: 90vh; background: whitesmoke; display: inline-block; text-align: center; border: 1px solid black; visibility: hidden;">
+    </div>
 
-        <!--  ++++++++++++  Support scripts   ++++++++++++++++++++++++++ -->
+    <div id="temp"></div>
 
-        <script>
+    <!--  ++++++++++++  Support scripts   ++++++++++++++++++++++++++ -->
 
-            var firstAccess = true; //used to ensure control buttons still visible after new control displayed
-            window.onload = function () {
-                displayGovernorsScreen('')
-            }
+    <script>
 
-            ///////////////// Governors       
+        var societyId = 1;
+        var eventDate;
+        var eventTime;
+        var unsavedChanges = false;
 
-            function displayEventsInsertEditTable(message) {
+        // the eventEditPanel is in a constant so that we can use a DOM copy as "working storage" while
+        // the user is editing/previewing event data and then reset this from the constant when a new
+        // event is selected
 
-                // The message parameter communicates the result of the last Event update call
+        const eventEditPanel = "\
+         <form id = 'eventform' style = 'text-align: center;' enctype = 'multipart/form-data' method = 'post'>\
+            <h2>Event Update Panel :</h2>\
+            <label for='eventdate'>&nbsp;&nbsp;Event Date : </label>\
+            <input type='text' id='eventdate' name='event_date' maxlength='8' size='8' autocomplete='off'\
+                title='Click to enter the date of this event' onchange='setUnsavedChanges();'\
+                onmousedown='applyDatepicker(\"eventdate\");'>\
+            <label for='eventtime'>&nbsp;&nbsp;Event Time : </label>\
+            <input type='time' id='eventtime' name='event_time' autocomplete='off'\
+                title='Click to enter the time of this event' onchange='setUnsavedChanges();'>\
+            <label for='eventtype'>&nbsp;&nbsp;Event Type : </label>\
+            <select id='eventtypesselectelement' name = 'event_type' size='1' style='max-width: 12rem;'\
+                onchange = 'setUnsavedChanges();'>\
+                <option value='Lecture' selected = 'selected'>Lecture</option>\
+                <option value='Online-Lecture'>Online-Lecture</option>\
+                <option value='Workshop'>Workshop</option>\
+                <option value=' Visit'>Visit</option>\
+            </select><br><br>\
+            <label for='eventtitle'>Event Title : </label>\
+            <input type='text' id='eventtitle' name='event_title' maxlength='200' size='60' autocomplete='off'\
+                placeholder='' title='Enter the title of this event' onkeyup='setUnsavedChanges();'><br><br>\
+            <label for='presenter'>Presenter : </label>\
+            <input type='text' id='presenter' name='presenter' maxlength='100' size='60' autocomplete='off'\
+                placeholder='' title='Eenter the name of the lecturer/leader for this event'\
+                onkeyup='setUnsavedChanges();'><br><br>\
+            <label for='synopsisdiv' style='vertical-align: top;'>Synopsis : &nbsp;&nbsp;</label>\
+                <div id='synopsisdiv'\
+                style='background:lightblue;display: inline-block; width:75%; height:30vh; text-align: left; margin-left: auto; margin-right: auto; border:2px solid black; overflow-x: hidden; overflow-x: auto;'>\
+                <p id='synopsis' contenteditable=true\
+                    style='margin: 0;padding-left:1vw; padding-right:1vw;'\
+                    onkeyup='setUnsavedChanges();'>\
+                </p>\
+            </div><br><br>\
+            <label for='standardbackgroundoverriddeny'>Supply own background : </label>\
+            <input type='radio' id='standardbackgroundoverriddeny' name='standard_background_overridden'\
+                title='Supply own background' value='Y' onchange='setUnsavedChanges();''>&nbsp;&nbsp;&nbsp;\
+            <input type='file' id='userbackgroundfilename' name = 'user_background_filename' maxlength='32' size='12'\
+                accept='.jpg'\
+                onchange = 'handleBackgroundFileChange();'\
+                title='Upload a jpg file for the event background and the synopsis header'>&nbsp;&nbsp;&nbsp;\
+            <label for='standardbackgroundoverriddenn'>Use standard background : </label>\
+            <input type='radio' id='standardbackgroundoverriddenn' name='standard_background_overridden'\
+                title='Use system-supplied background' value='N' checked onchange='setUnsavedChanges();'>\
+            <br><br>\
+            <label for='eventpublishedy'>Publish Event : </label>\
+            <input type='radio' id='eventpublishedy' name='event_published'\
+                title='Event details cleared to appear on the website' value='Y'\
+                onchange='setUnsavedChanges();'>&nbsp;&nbsp;&nbsp;\
+            <label for='eventpublishedn'>Don't Publish Event : </label>\
+            <input type='radio' id='eventpublishedn' name='event_published'\
+                title='Event details not cleared to appear on the website' value='N' checked\
+                onchange='setUnsavedChanges();'>\
+            <br><br>\
+            <button id='previeweventbutton' type='button' onclick='previewEvent();'\
+                title='Display a preview of the Event entry'>Preview</button>\
+            <button id='updateeventbutton' type='button' title='Save these changes'>Save</button>\
+            <button id='canceleventupdatebutton' type='button' onclick='cancelEventUpdate();'\
+                title='Cancel this edit'>Cancel</button><br>\
+        </form>";
 
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "build_event_insert_edit_table");
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
+        window.onload = function () {
+            displayEventOverview('', '');
+        }
 
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
+        function displayEventOverview(message, messageType) {
 
-                            document.getElementById('inserteditdiv').innerHTML = response;
+            // The message parameters communicates the result (and type) of the last Event update call
 
-                        }
+            var form = document.forms.namedItem("dummyform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "build_event_overview");
+            oData.append("society_id", societyId);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
+
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
                     }
-                };
-                oReq.send(oData);
-            }
-
-            function displayGovernorInsertScreen() {
-
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "build_governor_insert_screen");
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
-
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-                            document.getElementById('currentcontrol').innerHTML = response;
-                        }
-                    }
-                };
-                oReq.send(oData);
-            }
-
-            function displayGovernorUpdateScreen(governorId) {
-
-                // Take this in two bites in order to simplify th code. Start by displaying
-                // a basic input screen, then get the data for governorId and modify the
-                // values and buttons on the basic screen
-
-                var form1 = document.forms.namedItem("dummyform");
-                var oData1 = new FormData(form1);
-                oData1.append("helper_type", "build_governor_insert_screen");
-                var oReq1 = new XMLHttpRequest();
-                oReq1.open("POST", "php/manager_helpers.php", true);
-                oReq1.onload = function (oEvent) {
-                    if (oReq1.status == 200) {
-
-                        var response = oReq1.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq1.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-
-                            document.getElementById('currentcontrol').innerHTML = response;
-                            // OK - that's the basic screen loaded, now get the data for "governorId"
-
-                            var form2 = document.forms.namedItem("dummyform");
-                            var oData2 = new FormData(form2);
-                            oData2.append("helper_type", "get_governor_data");
-                            oData2.append("governor_id", governorId);
-                            var oReq2 = new XMLHttpRequest();
-                            oReq2.open("POST", "php/manager_helpers.php", true);
-                            oReq2.onload = function (oEvent) {
-                                if (oReq2.status == 200) {
-
-                                    var response = oReq2.responseText;
-                                    if (response.indexOf("%timed_out%") != -1) {
-                                        handleTimeout();
-                                        return;
-                                    }
-                                    var response = oReq2.responseText;
-                                    if (response.indexOf("%failed%") != -1) {
-                                        alert(response);
-                                    } else {
-                                        var xmlDoc = oReq2.responseXML;
-                                        var JSONString = xmlDoc.getElementsByTagName("returns")[0].childNodes[0].nodeValue;
-                                        var JSONObject = JSON.parse(JSONString);
-                                        var sysadExists = JSONObject.sysad_exists;
-                                        document.getElementById('governorfirstnames').value = JSONObject.governor_first_names;
-                                        document.getElementById('governorsurname').value = JSONObject.governor_surname;
-                                        var governorTypeCode = JSONObject.governor_type_code;
-                                        var governorRoleCode = JSONObject.governor_role_code;
-                                        var governorTypes = document.getElementsByName('governortypes');
-                                        var governorRoles = document.getElementsByName('governorroles');
-                                        governorTypes[governorTypeCode - 1].checked = true;
-                                        governorRoles[governorRoleCode - 1].checked = true;
-                                        document.getElementById('governorresponsibilities').value = JSONObject.governor_responsibilities;
-                                        document.getElementById('governortelephonenumber').value = JSONObject.governor_telephone_number;
-                                        document.getElementById('governoremailaddress').value = JSONObject.governor_email_address;
-                                        document.getElementById('governorpostaladdress').value = JSONObject.governor_postal_address;
-                                        document.getElementById('governorappointmentdate').placeholder = JSONObject.governor_appointment_date;
-                                        document.getElementById('governortermofoffice').value = JSONObject.governor_term_of_office;
-                                        document.getElementById('governorbusinessinterests').value = JSONObject.governor_business_interests;
-                                        document.getElementById('buildgovernorbuttons').innerHTML =
-                                                "<button id = 'updatebutton'  type='button' class='btn-sm btn-primary' style = 'margin-left: 2vw;'" +
-                                                "title='Update the record for this Governor'" +
-                                                "onmousedown='updateGovernor(" + governorId + ");'>Update" +
-                                                "</button>" +
-                                                "<button id = 'cancelbutton'  type='button' class='btn-sm btn-primary' style = 'margin-left: 2vw;'" +
-                                                "title='Cancel the update'" +
-                                                "onmousedown='displayGovernorsScreen(\"Update cancelled\");'>Cancel" +
-                                                "</button>";
-                                        // give the surname field focus and make sure it is visible
-
-                                        document.getElementById("governorfirstnames").focus();
-                                    }
-                                }
-                            };
-                            oReq2.send(oData2);
-                        }
-
-                    }
-                };
-                oReq1.send(oData1);
-            }
-
-            function insertGovernor() {
-
-                if (governorDataIsValid()) {
-
-                    var form = document.forms.namedItem("governordata");
-                    var oData = new FormData(form);
-                    oData.append("helper_type", "insert_governor");
-                    var oReq = new XMLHttpRequest();
-                    oReq.open("POST", "php/manager_helpers.php", true);
-                    oReq.onload = function (oEvent) {
-                        if (oReq.status == 200) {
-
-                            var response = oReq.responseText;
-                            if (response.indexOf("%timed_out%") != -1) {
-                                handleTimeout();
-                                return;
-                            }
-                            var response = oReq.responseText;
-                            if (response.indexOf("%failed%") != -1) {
-                                alert(response);
-                            } else {
-                                displayGovernorsScreen("New Governor added");
-                            }
-                        }
-                    };
-                    oReq.send(oData);
-                }
-            }
-
-            function updateGovernor(governorId) {
-
-                if (governorDataIsValid()) {
-
-                    var form = document.forms.namedItem("governordata");
-                    var oData = new FormData(form);
-                    oData.append("helper_type", "update_governor");
-                    oData.append("governor_id", governorId);
-                    var oReq = new XMLHttpRequest();
-                    oReq.open("POST", "php/manager_helpers.php", true);
-                    oReq.onload = function (oEvent) {
-                        if (oReq.status == 200) {
-
-                            var response = oReq.responseText;
-                            if (response.indexOf("%timed_out%") != -1) {
-                                handleTimeout();
-                                return;
-                            }
-                            var response = oReq.responseText;
-                            if (response.indexOf("%failed%") != -1) {
-                                alert(response);
-                            } else {
-                                displayGovernorsScreen("Governor record updated");
-                            }
-                        }
-                    };
-                    oReq.send(oData);
-                }
-            }
-
-            function deleteGovernor(governorId, governorName) {
-
-                if (confirm('Do you really want to delete governor ' + governorName + '?')) {
-
-                    var form = document.forms.namedItem("dummyform");
-                    var oData = new FormData(form);
-                    oData.append("helper_type", "delete_governor");
-                    oData.append("governor_id", governorId);
-                    var oReq = new XMLHttpRequest();
-                    oReq.open("POST", "php/manager_helpers.php", true);
-                    oReq.onload = function (oEvent) {
-                        if (oReq.status == 200) {
-
-                            var response = oReq.responseText;
-                            if (response.indexOf("%timed_out%") != -1) {
-                                handleTimeout();
-                                return;
-                            }
-                            var response = oReq.responseText;
-                            if (response.indexOf("%failed%") != -1) {
-                                alert(response);
-                            } else {
-                                displayGovernorsScreen('Governor record deleted');
-                            }
-                        }
-                    };
-                    oReq.send(oData);
-                }
-            }
-
-            function reorderGovernors() {
-
-                // build a json listing the governor_ids for the current governorsUpdateView in
-                // their present order
-
-                var governors = document.getElementsByClassName('governorsentry');
-                var sequencedGovernorIds = [];
-                for (var i = 0; i < governors.length; i++) {
-                    sequencedGovernorIds[i] = governors[i].innerHTML;
-                }
-                sequencedGovernorIdsJson = JSON.stringify(sequencedGovernorIds);
-
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "reorder_governors");
-                oData.append("sequenced_governor_ids_json", sequencedGovernorIdsJson);
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
-
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-                            displayGovernorsScreen("Reorder succeeded");
-                        }
-                    }
-                }
-                ;
-                oReq.send(oData);
-            }
-
-            var governorScreenValid;
-            function governorDataIsValid() {
-
-                // return true if the data contained in the Governor details display now
-                // occupying currentControl is valid
-
-                var governorfirstnames = document.getElementById('governorfirstnames');
-                var governorsurname = document.getElementById('governorsurname');
-                var governorresponsibilities = document.getElementById('governorresponsibilities');
-                var governorpostaladdress = document.getElementById('governorpostaladdress');
-                var governortelephonenumber = document.getElementById('governortelephonenumber');
-                var governoremailaddress = document.getElementById('governoremailaddress');
-                var governorappointmentdate = document.getElementById('governorappointmentdate');
-                var governortermofoffice = document.getElementById('governortermofoffice');
-                var governorbusinessinterests = document.getElementById('governorbusinessinterests');
-                var governorFirstNames = governorfirstnames.value;
-                var governorSurname = governorsurname.value;
-                var governorType = checkedRadioButton('governortypes');
-                var governorRole = checkedRadioButton('governorroles');
-                var governorResponsibilities = governorresponsibilities.value;
-                var governorPostalAddress = governorpostaladdress.value;
-                var governorTelephoneNumber = governortelephonenumber.value;
-                var governorEmailAddress = governoremailaddress.value;
-                var governorAppointmentDate = governorappointmentdate.value;
-                var governorTermOfOffice = governortermofoffice.value;
-                var governorBusinessInterests = governorbusinessinterests.value;
-                governorScreenValid = true;
-                if (governorFirstNames == '')
-                    injectErrorMessage('governorfirstnames', "Sorry - governor first names is a required field");
-                if (governorSurname == '')
-                    injectErrorMessage('governorsurname', "Sorry - governor surname is a required field");
-                if (governorType == '%failed%')
-                    injectErrorMessage('governorsurname', "Sorry - governor type  is a required field");
-                if (governorPostalAddress == '' && governorTelephoneNumber == '' && governorEmailAddress == '') {
-                    injectErrorMessage('governortelephonenumber', "Sorry - there must be at least one contact point for this governor");
-                    injectErrorMessage('governoremailaddress', "Sorry - there must be at least one contact point for this governor");
-                    injectErrorMessage('governorpostaladdress', "Sorry - there must be at least one contact point for this governor");
-                }
-
-                if (governorAppointmentDate > today())
-                    injectErrorMessage('appointmentdate', "Sorry - appointment date cannot be set in the future");
-                if (governorAppointmentDate == '')
-                    injectErrorMessage('appointmentdate', "Sorry - appointment date is a required field");
-                if (governorTermOfOffice < 1 || governorTermOfOffice > 4)
-                    injectErrorMessage('termofoffice', "Sorry - Term of Office must have a value of between 1 and 4 years");
-                return governorScreenValid;
-            }
-
-///////////////////////////   Clerks    
-
-
-            function displayClerkUpdateScreen() {
-
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "build_clerk_update_screen");
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
-
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-                            document.getElementById('currentcontrol').innerHTML = response;
-                        }
-                    }
-                };
-                oReq.send(oData);
-            }
-
-            function updateClerk() {
-
-                if (clerkDataIsValid()) {
-
-                    var form = document.forms.namedItem("clerkdata");
-                    var oData = new FormData(form);
-                    oData.append("helper_type", "update_clerk");
-                    var oReq = new XMLHttpRequest();
-                    oReq.open("POST", "php/manager_helpers.php", true);
-                    oReq.onload = function (oEvent) {
-                        if (oReq.status == 200) {
-
-                            var response = oReq.responseText;
-                            if (response.indexOf("%timed_out%") != -1) {
-                                handleTimeout();
-                                return;
-                            }
-                            var response = oReq.responseText;
-                            if (response.indexOf("%failed%") != -1) {
-                                alert(response);
-                            } else {
-                                displayGovernorsScreen("Clerk record updated");
-                            }
-                        }
-                    };
-                    oReq.send(oData);
-                }
-            }
-
-
-            var clerkScreenValid;
-            function clerkDataIsValid() {
-
-                // return true if the data contained in the Clerk details display now
-                // occupying currentControl is valid
-
-                var clerkfirstnames = document.getElementById('clerkfirstnames');
-                var clerksurname = document.getElementById('clerksurname');
-                var clerkpostaladdress = document.getElementById('clerkpostaladdress');
-                var clerktelephonenumber = document.getElementById('clerktelephonenumber');
-                var clerkemailaddress = document.getElementById('clerkemailaddress');
-                var clerkFirstNames = clerkfirstnames.value;
-                var clerkSurname = clerksurname.value;
-                var clerkPostalAddress = clerkpostaladdress.value;
-                var clerkTelephoneNumber = clerktelephonenumber.value;
-                var clerkEmailAddress = clerkemailaddress.value;
-                clerkScreenValid = true;
-                if (clerkFirstNames == '')
-                    injectErrorMessage('clerkfirstnames', "Sorry - clerk first names is a required field");
-                if (clerkSurname == '')
-                    injectErrorMessage('clerksurname', "Sorry - clerk surname is a required field");
-                if (clerkPostalAddress == '' && clerkTelephoneNumber == '' && clerkEmailAddress == '') {
-                    injectErrorMessage('clerktelephonenumber', "Sorry - there must be at least one contact point for this clerk");
-                    injectErrorMessage('clerkemailaddress', "Sorry - there must be at least one contact point for this clerk");
-                    injectErrorMessage('clerkpostaladdress', "Sorry - there must be at least one contact point for this governor");
-                }
-
-                return clerkScreenValid;
-            }
-
-////////////////// Meetings
-
-            function displayMeetingsScreen(firstMeetingDate, lastMeetingDate, message, messageClass) {
-
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "build_attendances_update_screen");
-                oData.append("first_meeting_date", firstMeetingDate);
-                oData.append("last_meeting_date", lastMeetingDate);
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
-
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-
-                            var currentcontrol = document.getElementById('currentcontrol');
-                            currentcontrol.innerHTML = response;
-                            if (!firstAccess) {
-                                currentcontrol.scrollIntoView({block: 'start', behavior: 'smooth'});
-                            }
-                            firstAccess = false;
-                            if (messageClass == "success") {
-                                displaySuccessMessage(message);
-                            } else {
-                                displayFailureMessage(message);
-                            }
-                        }
-
-                    }
-                };
-                oReq.send(oData);
-            }
-
-            function displayMeetingInsertScreen() {
-
-                // this is awkward as we need to check the uniqueness of meeting date first and
-                // this means we'll have to next the aysnch insert code within an insert uniqueness
-
-                // get the date of the meeting from the insertmeetingdate element
-
-                var meetingDate = document.getElementById('insertmeetingdate').value;
-                var form1 = document.forms.namedItem("dummyform");
-                var oData1 = new FormData(form1);
-                oData1.append("helper_type", "test_for_unique_meeting_date");
-                oData1.append("meeting_date", meetingDate);
-                var oReq1 = new XMLHttpRequest();
-                oReq1.open("POST", "php/manager_helpers.php", true);
-                oReq1.onload = function (oEvent) {
-                    if (oReq1.status == 200) {
-
-                        var response = oReq1.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq1.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-                            if (response.indexOf("duplicate") != -1) {
-                                displayMeetingsScreen('', '', 'Oops - a meeting already exists for this date', 'failure');
-                                return;
-                            } else {
-
-                                var form2 = document.forms.namedItem("dummyform");
-                                var oData2 = new FormData(form2);
-                                oData2.append("helper_type", "build_meeting_insert_table");
-                                oData2.append("meeting_date", meetingDate);
-                                var oReq2 = new XMLHttpRequest();
-                                oReq2.open("POST", "php/manager_helpers.php", true);
-                                oReq2.onload = function (oEvent) {
-                                    if (oReq2.status == 200) {
-
-                                        var response = oReq2.responseText;
-                                        if (response.indexOf("%timed_out%") != -1) {
-                                            handleTimeout();
-                                            return;
-                                        }
-                                        var response = oReq2.responseText;
-                                        if (response.indexOf("%failed%") != -1) {
-                                            alert(response);
-                                        } else {
-                                            document.getElementById('currentcontrol').innerHTML = response;
-                                        }
-                                    }
-                                };
-                                oReq2.send(oData2);
-                            }
-                        }
-                    }
-                };
-                oReq1.send(oData1);
-            }
-
-            function insertMeeting(meetingDate) {
-
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "insert_meeting");
-                oData.append("meeting_date", meetingDate);
-                // We need to build a parameter list for the governor checkboxes displayed in the current control
-                // These all have class "attendancecheckbox" so can be found from document.getElementsByClassName
-                // Note,we have previously used json's for this sort of thing, but this hardly seems worth it here
-
-                var checkboxes = document.getElementsByClassName("attendancecheckbox");
-                var checkboxValues = [];
-                for (var i = 0; i < checkboxes.length; i++) {
-                    if (checkboxes[i].checked) {
-                        checkboxValues.push('Y');
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
                     } else {
-                        checkboxValues.push('N');
+                        document.getElementById('eventoverview').innerHTML = response;
+
+                        var messagearea = document.getElementById('messagearea');
+                        messagearea.innerHTML = message;
+                        messagearea.style.color = "blue";
+                        if (messageType === "error") messagearea.style.color = "red";
                     }
                 }
+            };
+            oReq.send(oData);
+        }
 
-                // we also need the associated governor_ids. These are in hidden spans with class "governor"
+        function insertEvent() {
 
-                var governors = document.getElementsByClassName("governor");
-                // The two arrays will have the same length and be in the same order. Combine them
-                // into an array of attendances of the form governor_id%checkbox_value. 
+            // create an event stub (ie just enough data to identify it) and then open
+            // this for editing
 
-                oData.append("attendances_count", checkboxes.length);
-                for (var i = 0; i < checkboxes.length; i++) {
+            var form = document.forms.namedItem("event0");
+            var oData = new FormData(form);
+            oData.append("helper_type", "insert_event");
+            oData.append("society_id", societyId);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
 
-                    oData.append("attendance_" + i, governors[i].innerHTML + "%" + checkboxValues[i]);
-                }
-
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
-
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-                            displayMeetingsScreen('', '', "Meeting record inserted");
-                        }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
                     }
-                };
-                oReq.send(oData);
-            }
-
-            function updateMeeting(meetingDate) {
-
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "update_meeting");
-                oData.append("meeting_date", meetingDate);
-                // We need to build a parameter list for the governor checkboxes displayed in the current control
-                // These all have class "attendancecheckbox" + meetingDate so can be found from 
-                // document.getElementsByClassName. Note,we have previously used json's for this sort of thing, but 
-                // this hardly seems worth it here
-
-                var checkboxes = document.getElementsByClassName("attendancecheckbox" + meetingDate);
-                var checkboxValues = [];
-                for (var i = 0; i < checkboxes.length; i++) {
-                    if (checkboxes[i].checked) {
-                        checkboxValues.push('Y');
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
                     } else {
-                        checkboxValues.push('N');
-                    }
-                }
-
-                // we also need the associated governor_ids. These are in hidden spans with class "governor" + meetingDate
-
-                var governors = document.getElementsByClassName("governor" + meetingDate);
-                // The two arrays will have the same length and be in the same order. Combine them
-                // into an array of attendances of the form governor_id%checkbox_value. 
-
-                oData.append("attendances_count", checkboxes.length);
-                for (var i = 0; i < checkboxes.length; i++) {
-
-                    oData.append("attendance_" + i, governors[i].innerHTML + "%" + checkboxValues[i]);
-                }
-
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
-
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
+                        if (response.indexOf("Oops") != -1) {
+                            displayEventOverview(response, 'error');
                         } else {
-                            displayMeetingsScreen('', '', "Meeting record updated");
+                            // refresh eventeditpanel
+                            document.getElementById('eventeditpanel').innerHTML = eventEditPanel;
+                            toggleEventPanels();
+                            unsetUnsavedChanges();
+                            // update eventeditpanel with the specific values for this event
+                            document.getElementById('eventdate').value = document.getElementById('eventdate0').value;
+                            document.getElementById('eventtime').value = document.getElementById('eventtime0').value;
+
+                            document.getElementById('updateeventbutton').setAttribute("onclick", 'updateEvent(' + response + ')');
+                            document.getElementById('userbackgroundfilename').setAttribute("onclick", 'handleBackgroundFileChange(' + response + ')');
                         }
                     }
-                };
-                oReq.send(oData);
-            }
-
-            function deleteMeeting(meetingDate) {
-
-                if (confirm('Do you really want to delete the meeting for ' + meetingDate + '?')) {
-
-                    var form = document.forms.namedItem("dummyform");
-                    var oData = new FormData(form);
-                    oData.append("helper_type", "delete_meeting");
-                    oData.append("meeting_date", meetingDate);
-                    var oReq = new XMLHttpRequest();
-                    oReq.open("POST", "php/manager_helpers.php", true);
-                    oReq.onload = function (oEvent) {
-                        if (oReq.status == 200) {
-
-                            var response = oReq.responseText;
-                            if (response.indexOf("%timed_out%") != -1) {
-                                handleTimeout();
-                                return;
-                            }
-                            var response = oReq.responseText;
-                            if (response.indexOf("%failed%") != -1) {
-                                alert(response);
-                            } else {
-                                displayMeetingsScreen('', '', "Meeting record deleted");
-                            }
-                        }
-                    };
-                    oReq.send(oData);
                 }
-            }
+            };
+            oReq.send(oData);
+        }
 
-////////////////// Documents
+        function displayEventEditPanel(eventId) {
 
-            function displayDocumentsScreen(message) {
+            // get the current data for event eventId and display it in the edit panel
 
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "build_documents_update_table");
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
+            var form = document.forms.namedItem("dummyform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "get_event_data");
+            oData.append("event_id", eventId);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
 
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
+
+                        JSONObject = JSON.parse(response);
+
+                        // refresh eventeditpanel
+                        document.getElementById('eventeditpanel').innerHTML = eventEditPanel;
+
+                        var eventDatetime = JSONObject.eventDatetime;
+                        eventDate = eventDatetime.substr(0, 10);
+                        eventTime = eventDatetime.substr(11, 5);
+
+                        document.getElementById('eventdate').placeholder = eventDate;
+                        document.getElementById('eventdate').value = eventDate;
+                        document.getElementById('eventtime').value = eventTime;
+
+                        document.getElementById('eventtypesselectelement').value = JSONObject.eventType;
+
+                        document.getElementById('eventtitle').value = JSONObject.eventTitle;
+                        document.getElementById('presenter').value = JSONObject.presenter;
+                        document.getElementById('synopsis').innerHTML = JSONObject.synopsis;
+
+                        if (JSONObject.standardBackgroundOverridden === "Y") {
+                            document.getElementById('standardbackgroundoverriddeny').checked = true;
                         } else {
-
-                            var currentcontrol = document.getElementById('currentcontrol');
-                            currentcontrol.innerHTML = response;
-                            if (!firstAccess) {
-                                currentcontrol.scrollIntoView({block: 'start', behavior: 'smooth'});
-                            }
-                            firstAccess = false;
-                            displaySuccessMessage(message);
+                            document.getElementById('standardbackgroundoverriddeny').checked = false;
                         }
-                    }
-                };
-                oReq.send(oData);
-            }
 
-            function displayDocumentInsertScreen() {
-
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "build_document_insert_screen");
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
-
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
+                        if (JSONObject.eventPublished === "Y") {
+                            document.getElementById('eventpublishedy').checked = true;
                         } else {
-                            document.getElementById('currentcontrol').innerHTML = response;
+                            document.getElementById('eventpublishedy').checked = false;
                         }
+
+                        document.getElementById('updateeventbutton').setAttribute('onclick', 'updateEvent(' + eventId + ')');
+                        document.getElementById('userbackgroundfilename').setAttribute("onclick", 'handleBackgroundFileChange(' + eventId + ')');
+                        toggleEventPanels();
+                        unsetUnsavedChanges();
                     }
-                };
-                oReq.send(oData);
-            }
-
-            function insertDocument() {
-
-                if (documentDataIsValidForInsert()) {
-
-                    document.body.style.cursor = 'wait';
-
-                    var form = document.forms.namedItem("documentdata");
-                    var oData = new FormData(form);
-                    oData.append("helper_type", "insert_document");
-                    var oReq = new XMLHttpRequest();
-                    oReq.open("POST", "php/manager_helpers.php", true);
-                    oReq.onload = function (oEvent) {
-                        if (oReq.status == 200) {
-
-                            document.body.style.cursor = 'default';
-
-                            var response = oReq.responseText;
-                            if (response.indexOf("%timed_out%") != -1) {
-                                handleTimeout();
-                                return;
-                            }
-                            var response = oReq.responseText;
-                            if (response.indexOf("%failed%") != -1) {
-                                alert(response);
-                            } else {
-                                displayDocumentsScreen("New Document added");
-                            }
-                        }
-                    };
-                    oReq.send(oData);
                 }
-            }
+            };
+            oReq.send(oData);
+        }
 
-            var documentScreenValid;
-            function documentDataIsValidForInsert() {
+        function updateEvent(eventId) {
 
-                // return true if the data contained in the Governor details display now
-                // occupying currentControl is valid
+            // commit the data accumulated in the editform and the user_background_previews (the user
+            // is expected to be savvy enough to signal that they've backed out of an aborted graphic
+            // change by cancelling the selected file field and resetting the checkbox to whatever
+            // it was before they started the edit)
 
-                var documentTitle = document.getElementById('documenttitle').value;
-                var documentAuthor = document.getElementById('documentauthor').value;
-                var documentSourceFilename = document.getElementById('documentsourcefilename').value;
-                var documentPdfFilename = document.getElementById('documentpdffilename').value;
+            var form = document.forms.namedItem("eventform"); 
+            var oData = new FormData(form);
 
-                documentScreenValid = true;
+            // note that we can rely on the eventform form to add simple input fields automatically to oDate. We
+            // need to use a proper form to generate $_FILES parameters to support the background upload
 
-                // note that "accept=" on file input elements should ensure that users are only able
-                // to select files with appropriate extensions
+            oData.append("helper_type", "update_event");
+            oData.append("event_id", eventId);
+            oData.append("society_id", societyId);
+            // can't get contenteditable to work on a form field, so synopsis is added
+            // to oData explicitly
+            oData.append("synopsis", document.getElementById('synopsis').innerHTML);
 
-                if (documentTitle == '')
-                    injectErrorMessage('documenttitle', "Sorry - document title is a required field");
-                if (documentAuthor == '')
-                    injectErrorMessage('documentauthor', "Sorry - document author is a required field");
-                if (documentSourceFilename == '')
-                    injectErrorMessage('documentsourcefilename', "Sorry - document source fie is a required field");
-                if (documentPdfFilename == '')
-                    injectErrorMessage('documentpdffilename', "Sorry - document pdf file is a required field");
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
 
-                return documentScreenValid;
-            }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
+                        toggleEventPanels()
+                        displayEventOverview("Event updated", '');
 
-            function displayVersionInsertScreen(documentTitle) {
+                    }
+                }
+            };
+            oReq.send(oData);
+        }
 
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "build_version_insert_screen");
-                oData.append("document_title", documentTitle);
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
+        function deleteEvent(eventId) {
 
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
+            var form = document.forms.namedItem("dummyform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "delete_event");
+            oData.append("event_id", eventId);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
+
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
+                        if (response.indexOf("OK") != -1) {
+                            displayEventOverview("Deletion succeeded", '');
                         } else {
-                            document.getElementById('currentcontrol').innerHTML = response;
-                        }
-                    }
-                };
-                oReq.send(oData);
-            }
-
-            function insertVersion(documentTitle) {
-
-                if (versionDataIsValidForInsert()) {
-
-                    document.body.style.cursor = 'wait';
-
-                    var form = document.forms.namedItem("versiondata");
-                    var oData = new FormData(form);
-                    oData.append("helper_type", "insert_version");
-                    oData.append("document_title", documentTitle);
-                    var oReq = new XMLHttpRequest();
-                    oReq.open("POST", "php/manager_helpers.php", true);
-                    oReq.onload = function (oEvent) {
-                        if (oReq.status == 200) {
-
-                            document.body.style.cursor = 'default';
-
-                            var response = oReq.responseText;
-                            if (response.indexOf("%timed_out%") != -1) {
-                                handleTimeout();
-                                return;
-                            }
-                            var response = oReq.responseText;
-                            if (response.indexOf("%failed%") != -1) {
-                                alert(response);
-                            } else {
-                                displayDocumentsScreen("New Version added");
-                            }
-                        }
-                    };
-                    oReq.send(oData);
-                }
-            }
-
-            var versionScreenValid;
-            function versionDataIsValidForInsert() {
-
-                // return true if the data contained in the Version insert display now
-                // occupying currentControl is valid
-
-                var documentAuthor = document.getElementById('documentauthor').value;
-                var documentSourceFilename = document.getElementById('documentsourcefilename').value;
-                var documentPdfFilename = document.getElementById('documentpdffilename').value;
-
-                versionScreenValid = true;
-
-                if (documentAuthor == '')
-                    injectErrorMessage('documentauthor', "Sorry - document author is a required field");
-                if (documentSourceFilename == '')
-                    injectErrorMessage('documentsourcefilename', "Sorry - document source fie is a required field");
-                if (documentPdfFilename == '')
-                    injectErrorMessage('documentpdffilename', "Sorry - document pdf file is a required field");
-
-                return versionScreenValid;
-            }
-
-            function resetDocumentsUpdateTableRow(rowNumber, maxVersionNumber) {
-
-                // Adjust the entry for documentId in the documentsScreen currently occupying currentControl.
-                // The new version number that has been requested is given by the selected option in the
-                // select tag. Get this version number
-
-                var versions = document.getElementById('versions' + rowNumber);
-                var selectedVersionNumber = versions.options[versions.selectedIndex].value;
-                // now need to get author and creation/review dates for this document version
-                var documentTitle = document.getElementById('title' + rowNumber).innerHTML;
-
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "reset_documents_update_table_row");
-                oData.append("row_number", rowNumber);
-                oData.append("document_title", documentTitle);
-                oData.append("version_number", selectedVersionNumber);
-                oData.append("max_version_number", maxVersionNumber);
-
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
-
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-                            document.getElementById('row' + rowNumber).innerHTML = response;
+                            displayEventOverview("Deletion failed", 'error');
                         }
                     }
                 }
-                ;
-                oReq.send(oData);
+            };
+            oReq.send(oData);
+        }
+
+        function cancelEventUpdate() {
+
+            if (unsavedChanges) {
+                if (!window.confirm("You have unsaved changes - do you really want to cancel?")) return;
             }
 
-            function displayDocumentReviewScreen(schoolId, documentTitle, maxVersionNumber) {
+            toggleEventPanels();
+            unsetUnsavedChanges();
+        }
 
-                // Enables you to change the "last_reviwed_date" on the latest version. This is
-                // the only change permitted for a documt once created - says you've looked at 
-                // it and decided it's OK
+        function handleBackgroundFileChange(eventId) {
 
-                var form = document.forms.namedItem("dummyform");
-                var oData = new FormData(form);
-                oData.append("helper_type", "build_document_review_screen");
-                oData.append("document_title", documentTitle);
-                oData.append("max_version_number", maxVersionNumber);
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
+            // the event fires whenever the file field is clicked - check that 
+            // a file was actually selected though and unset the radio button
+            // if it wasn't
+            if (document.getElementById('userbackgroundfilename').value.length > 0) { 
+                document.getElementById('standardbackgroundoverriddeny').checked = true;
+                setUnsavedChanges();
+                uploadUserBackgroundPreview(eventId);
+            } else {
+                document.getElementById('standardbackgroundoverriddeny').checked = false;
+                document.getElementById('standardbackgroundoverriddenn').checked = true;
+            }
+        }
 
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-                            document.getElementById('currentcontrol').innerHTML = response;
-                        }
+        function uploadUserBackgroundPreview(eventId) {
+
+            // place any selected graphic in the user_background_previews folder on the server
+            // so that it's available if the user selects the preview button
+
+            var form = document.forms.namedItem("eventform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "upload_user_background_preview");
+            oData.append("society_id", societyId);
+            oData.append("event_id", eventId);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
+
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
                     }
-                };
-                oReq.send(oData);
-            }
-
-            function updateDocument(schoolId, documentTitle, maxVersionNumber) {
-
-                // note that the key is schoolId, documentTtitle and maxVersionNumber as the system only
-                // permts users to update the latest version
-
-                var form = document.forms.namedItem("documentdata");
-                var oData = new FormData(form);
-                oData.append("helper_type", "update_document");
-                oData.append("document_title", documentTitle);
-                oData.append("max_version_number", maxVersionNumber);
-                oData.append("document_author", document.getElementById('documentauthor').value);
-                oData.append("document_issue_date", document.getElementById('documentissuedate').value);
-                oData.append("version_last_review_date", document.getElementById('versionlastreviewdate').value);
-                var oReq = new XMLHttpRequest();
-                oReq.open("POST", "php/manager_helpers.php", true);
-                oReq.onload = function (oEvent) {
-                    if (oReq.status == 200) {
-
-                        var response = oReq.responseText;
-                        if (response.indexOf("%timed_out%") != -1) {
-                            handleTimeout();
-                            return;
-                        }
-                        var response = oReq.responseText;
-                        if (response.indexOf("%failed%") != -1) {
-                            alert(response);
-                        } else {
-                            displayDocumentsScreen("Document updated");
-                        }
-                    }
-                };
-                oReq.send(oData);
-            }
-
-            function deleteDocument(schoolId, documentTitle, maxVersionNumber) {
-
-                var deletionMessage = 'Do you really want to delete document ' + documentTitle + '? ' +
-                        '(Note that this will remove all versions of this document from the document store.)';
-                if (confirm(deletionMessage)) {
-
-                    var form = document.forms.namedItem("dummyform");
-                    var oData = new FormData(form);
-                    oData.append("helper_type", "delete_document");
-                    oData.append("document_title", documentTitle);
-                    oData.append("max_version_number", maxVersionNumber);
-                    var oReq = new XMLHttpRequest();
-                    oReq.open("POST", "php/manager_helpers.php", true);
-                    oReq.onload = function (oEvent) {
-                        if (oReq.status == 200) {
-
-                            var response = oReq.responseText;
-                            if (response.indexOf("%timed_out%") != -1) {
-                                handleTimeout();
-                                return;
-                            }
-                            var response = oReq.responseText;
-                            if (response.indexOf("%failed%") != -1) {
-                                alert(response);
-                            } else {
-                                displayDocumentsScreen('Document deleted');
-                            }
-                        }
-                    };
-                    oReq.send(oData);
-                }
-            }
-
-/////////////////  Service functions
-
-            function injectErrorMessage(field, errorMessage) {
-
-                // Insert "errorMessage" into the innerHTML of the error paragraph element associated
-                // with element "field" - assumed to have id "fielderror".
-                // 
-                // Also set the global governorScreenValid variable
-
-                var fielderrormessageid = field + "error";
-                document.getElementById(fielderrormessageid).innerHTML = errorMessage;
-                document.getElementById(fielderrormessageid).style.color = 'red';
-                governorScreenValid = false;
-                clerkScreenValid = false;
-                documentScreenValid = false;
-                versionScreenValid = false;
-            }
-
-            function checkedRadioButton(radioButtonname) {
-
-                // return the checked value of a radioButtons array, else "%failed%"
-
-                var radioButtons = document.getElementsByName(radioButtonname);
-                for (var i = 0; i < radioButtons.length; i++) {
-                    if (radioButtons[i].checked) {
-                        return radioButtons[i].value;
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
                     }
                 }
-                return "%failed%";
-            }
+            };
+            oReq.send(oData);
+        }
 
-            function clearMessageArea() {
+        function previewEvent() {
 
-                document.getElementById('messagearea').innerHTML = '';
-            }
+            // We need to find some way of pointing the data currently sitting in the
+            // eventEditPanel at the cba_helper.php's build_events_table function. To do
+            // this we need to get the data into an event record somewhere. The best way
+            // of doing this since we obviously don't want to overwrite current data just 
+            // yetseems to be to put it into a special event record for this society
+            // with an "event_preview" flag set to "Y". Note that each society will
+            // only ever have just one of these. The procedure will create this record
+            // if it doesn't exist, otherwise it will just re-use whatever is already there
 
-            function displaySuccessMessage(messageContent) {
+            // Once the record is in place, launch a popup to access it with cba_helpers
+            // and display the outcome. We need a popup here for two reasons - first,
+            // the outcome is coded in bootstrap terms and, while we could include the
+            // bootstrap library in manager.html, this would upset the formatting of
+            // the rest of the formatting in manager.html (eg font size and line width
+            // default settings). This is probably just lazines - but is there a rule
+            // someweher that says you should use Bootstrap for everything?. We therefore
+            // need a separate html instance - the second reason is that the
+            // outcome needs to be displayed in a full-size window, as its formatting
+            // depends upon this assumption. So it might as well be done in a full-size popup.
+            // The only thread left danging here is that there's no opportunity to create
+            // the usual listener createed to close the popup on click outside its are 
+            // (because there /is/ no outside area). Perhaps we need to get index.html to
+            // add a bit more special purpose code for a "preview" call to display a "close"
+            // button
 
-                document.getElementById('messagearea').innerHTML = messageContent;
-                document.getElementById('messagearea').style.color = 'blue';
-            }
+            // The popup code needs to be in the cba root directory otherwise the relative
+            // references to images coded in the cba_helpers outcome won't work
 
-            function displayFailureMessage(messageContent) {
+            // todo - because of browser caching, it may appear that the system has "lost"
+            // changes to event backgrounds. Things only get straightened out when you
+            // clear browser history.  Half solved by putting a timestamp as a parameter on
+            // the background file's src filewhile in preview mode, but the problem returns
+            // as soon as you go back to "live" mode. as we can't consider using this trick
+            // here - browser cahing is there for a very good reason! The answer will be to
+            // put a permanent timestamp on the filenames in user_backgrounds.
+            // We also we need to police background sizes and reject ones that are too big.
 
-                document.getElementById('messagearea').innerHTML = messageContent;
-                document.getElementById('messagearea').style.color = 'red';
-            }
+            var form = document.forms.namedItem("eventform");
+            var oData = new FormData(form);
+            oData.append("helper_type", "prepare_event_preview");
+            oData.append("society_id", societyId);
+            oData.append("synopsis", document.getElementById('synopsis').innerHTML);
+            var oReq = new XMLHttpRequest();
+            oReq.open("POST", "php/manager_helpers.php", true);
+            oReq.onload = function (oEvent) {
+                if (oReq.status == 200) {
 
-            function handleTimeout() {
+                    var response = oReq.responseText;
+                    if (response.indexOf("%timed_out%") != -1) {
+                        handleTimeout();
+                        return;
+                    }
+                    var response = oReq.responseText;
+                    if (response.indexOf("%failed%") != -1) {
+                        alert(response);
+                    } else {
 
-                // An attempt to execute a helper_function has returned a %timed-out% response. This
-                // might be a genuine timeout of the php session record or could be a hacking attempt.
-                // Either way invite the user to login
-
-                window.location.assign("login.html");
-            }
-
-            function applyDatepicker(elementId) {
-
-                var oldDate = document.getElementById(elementId).value;
-
-                $('#' + elementId).datepicker();
-                $('#' + elementId).datepicker('option', 'dateFormat', 'yy-mm-dd'); // set 2020-03-30 type format
-                $('#' + elementId).datepicker('option', 'changeMonth', true); // display month drop-down
-                $('#' + elementId).datepicker('option', 'changeYear', true); // display year drop-down
-                $('#' + elementId).datepicker('option', 'yearRange', '1999:c'); // 1999 to current - see https://api.jqueryui.com/datepicker/#option-yearRange
-
-                //if there's a value for the element, inject this into datepicker
-                var elementValue = document.getElementById(elementId).placeholder;
-                if (elementValue != '') {
-                    $('#' + elementId).datepicker("setDate", elementValue);
+                        event.stopPropagation(); // make sure we don't triggger the window click we set up later                    }
+                        displayPopupWindow("event_preview_popup.html?v=1.0&target_society_id=" + societyId);
+                    }
                 }
+            };
+            oReq.send(oData);
+        }
 
-                $('#' + elementId).datepicker()
-                        .on('input change', function (e) {
+        function displayPopupWindow(url) {
 
-                            var newDate = document.getElementById(elementId).value;
-                            if (newDate == '')
-                                document.getElementById(elementId).value = oldDate;
+            // popup is displayed in a full-size window
+            var popupWidth = window.innerWidth;
+            var popupHeight = window.innerHeight;
+            var popupLeft = 0;
+            var popupTop = 0;
 
-                        });
+            var popupSpecs = "width=" + popupWidth + ", height=" + popupHeight + ", left=" + popupLeft + ", top=" + popupTop + "t, resizable = yes, scrollbars = yes ";
 
+            var popUpWindow = window.open(url, "popUpWindow", popupSpecs);
+
+        }
+
+        function toggleEventPanels() {
+            var eventoverview = document.getElementById('eventoverview');
+            var eventeditpanel = document.getElementById('eventeditpanel');
+            if (eventoverview.style.visibility === "visible") {
+                eventoverview.style.visibility = "hidden";
+                eventeditpanel.style.visibility = "visible";
+            } else {
+                eventoverview.style.visibility = "visible";
+                eventeditpanel.style.visibility = "hidden";
+            }
+        }
+
+        function applyDatepicker(elementId) {
+
+            var oldDate = document.getElementById(elementId).value;
+
+            $('#' + elementId).datepicker();
+            $('#' + elementId).datepicker('option', 'dateFormat', 'yy-mm-dd'); // set 2020-03-30 type format
+            $('#' + elementId).datepicker('option', 'changeMonth', true); // display month drop-down
+            $('#' + elementId).datepicker('option', 'changeYear', true); // display year drop-down
+            $('#' + elementId).datepicker('option', 'yearRange', '1999:c'); // 1999 to current - see https://api.jqueryui.com/datepicker/#option-yearRange
+
+            //if there's a value for the element, inject this into datepicker
+            var elementValue = document.getElementById(elementId).placeholder;
+            if (elementValue != '') {
+                $('#' + elementId).datepicker("setDate", elementValue);
             }
 
-            function today() {
+            $('#' + elementId).datepicker()
+                .on('input change', function (e) {
 
-                // return today's date as yyyy-mm-dd
+                    var newDate = document.getElementById(elementId).value;
+                    if (newDate == '')
+                        document.getElementById(elementId).value = oldDate;
 
-                return new Date().toISOString().slice(0, 10); // "yyyy-mm-dd"
-            }
+                });
+        }
 
-            function downloadDocument(url) {
+        function setUnsavedChanges() {
+            unsavedChanges = true;
+            document.getElementById('updateeventbutton').style.backgroundColor = "pink";
+            document.getElementById('updateeventbutton').title = "You have unsaved changes";
+        }
 
-                var downloadanchor = document.getElementById('downloadanchor');
-                downloadanchor.href = url;
-                downloadanchor.click();
-            }
+        function unsetUnsavedChanges() {
+            unsavedChanges = false;
+            document.getElementById('updateeventbutton').style.backgroundColor = "aqua";
+            document.getElementById('updateeventbutton').title = "Save these changes";
+        }
 
-            function grabClipboardLink(url) {
+    </script>
 
-                var launchanchor = document.getElementById('launchanchor');
-                launchanchor.href = url;
-                launchanchor.click();
-            }
+</body>
 
-        </script>
-
-        <!-- Latest Sortable         -->
-        <script src="sortable.js"></script>
-
-
-    </body>
 </html>
-
-
-
